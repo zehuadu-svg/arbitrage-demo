@@ -1,0 +1,58 @@
+flowchart TB
+  %% =========================
+  %% TAKE PROFIT FLOW (Truth-Lag Strategy)
+  %% =========================
+
+  subgraph MD["Market Data"]
+  direction LR
+    MD1["Polymarket CLOB Quotes"]:::data --> MD3["Quote Health"]:::data
+    MD2["Truth Source Updates<br/>(resolution oracle)"]:::data --> MD3
+  end
+
+  subgraph SC["Screener"]
+  direction LR
+    SC1["Compute p_true and fair_price<br/>(truth-lag mispricing)"]:::dec
+      --> SC2["Compute TP trigger"]:::dec
+      --> SC3["TP Candidate"]:::dec
+  end
+
+  subgraph SI["Strategy Intent"]
+  direction LR
+    SI1["State OPEN"]:::state --> SI2{"TP condition met?"}:::gate --> SI3["Emit TP Intent"]:::intent
+    SI4["Risk Manager<br/>position cap and timeouts"]:::state
+    SI4 --> SI2
+  end
+
+  subgraph EX["Execution"]
+  direction LR
+    EX1["Order Router"]:::exec --> EX2["Place Limit Sell<br/>tp_price or ladder"]:::exec --> EX3["Fill Tracker"]:::exec
+  end
+
+  subgraph OBS["Ops"]
+  direction LR
+    OB1["Metrics and Logs"]:::ops --> OB2["Alert if TP stuck"]:::ops
+  end
+
+  %% ----- Links -----
+  MD3 --> SC1
+  SC3 --> SI1
+  SI3 --> EX1
+  EX3 --> SI1
+  SC2 --> OB1
+  EX3 --> OB1
+
+  %% ----- Truth-Lag TP definition -----
+  TPDEF["Truth-Lag TP examples<br/>1) market_price >= tp_price<br/>2) time_to_resolution small and liquidity thin<br/>3) edge decay faster than expected"]:::note
+  SI2 --- TPDEF
+
+  %% ----- Styles -----
+  classDef data fill:#E8F1FF,stroke:#2B6CB0,stroke-width:2px,color:#0B2545;
+  classDef dec fill:#FFF7E6,stroke:#B7791F,stroke-width:2px,color:#5A3A00;
+  classDef state fill:#E9FBF0,stroke:#2F855A,stroke-width:2px,color:#0B3D2E;
+  classDef intent fill:#F3E8FF,stroke:#6B46C1,stroke-width:2px,color:#2D1A6B;
+  classDef exec fill:#FAFAFA,stroke:#616161,stroke-width:2px,color:#212121;
+  classDef ops fill:#FFE8EA,stroke:#C53030,stroke-width:2px,color:#5A0B0B;
+  classDef gate fill:#FFFFFF,stroke:#444444,stroke-width:2px,color:#111111;
+  classDef note fill:#FFFFFF,stroke:#999999,stroke-width:1px,color:#333333;
+
+  linkStyle default stroke-width:2px;
