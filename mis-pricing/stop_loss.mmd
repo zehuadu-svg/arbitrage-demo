@@ -1,0 +1,38 @@
+flowchart TD
+  A["Position Opened on HL"] --> B["Monitor adjusted_gap over time"]
+  B --> C["Compute adverse move<br/>based on direction and gap vs entry"]
+  C --> D{"Spread crossed next ladder level?"}
+
+  D -- "No" --> E{"Hard stop-loss hit?"}
+  E -- "No" --> F["Hold<br/>Update state & metrics"] --> G["Next tick"] --> B
+  E -- "Yes" --> H["Intent: STOP_LOSS_CLOSE<br/>reason = HARD_STOP"]
+  H --> I["Execution: immediate reduce-only close<br/>market or IOC"]
+  I --> J["Notify + Freeze trading for symbol"]
+  J --> K["State = HALTED (manual resume)"]
+
+  D -- "Yes" --> L{"Ladder allowed?<br/>ladder_count &lt; max_ladders<br/>AND not HALTED"}
+  L -- "No" --> M["Intent: ALERT_ONLY<br/>reason = LADDER_LIMIT_REACHED"]
+  M --> N["Notify trader<br/>Stop adding more<br/>(optional: keep position)"] --> G
+
+  L -- "Yes" --> O["Intent: ADD_POSITION<br/>size = ladder_size(level)"]
+  O --> P["Execution: place add-on order<br/>update avg_entry"]
+  P --> Q["ladder_count++<br/>recalc risk"]
+  Q --> R{"Runaway spread?<br/>too fast or consecutive levels"}
+  R -- "No" --> G
+  R -- "Yes" --> S["Intent: HALT_ADDING + ALERT<br/>reason = RUNAWAY_SPREAD"]
+  S --> N
+
+  %% ---------- Styling (subtle) ----------
+  classDef decision fill:#EEF4FF,stroke:#2B6CB0,stroke-width:1px,color:#0B2545;
+  classDef loop fill:#F6F7F9,stroke:#A0AEC0,stroke-width:1px,color:#1A202C;
+  classDef intent fill:#FFF7E6,stroke:#B7791F,stroke-width:1px,color:#5A3A00;
+  classDef exec fill:#F3E8FF,stroke:#6B46C1,stroke-width:1px,color:#2D1A6B;
+  classDef alert fill:#FFE8EA,stroke:#C53030,stroke-width:1px,color:#5A0B0B;
+
+  class D,E,L,R decision;
+  class A,B,C,F,G,Q loop;
+  class H,M,O intent;
+  class I,P exec;
+  class J,K,N,S alert;
+
+  linkStyle default stroke-width:1.5px;

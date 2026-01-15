@@ -1,0 +1,52 @@
+flowchart LR
+  %% ---------- Layers ----------
+  subgraph MD["Market Data Layer"]
+    A1["Connectors<br/>(HL WS/HTTP, Broker, Exchanges)"] --> A2["Normalizer<br/>(symbol map, decimals, timestamps)"]
+    A2 --> A3["Quote Cache and Health<br/>(staleness, gaps, rate-limit)"]
+    A3 --> A4["Unified Quote Bus<br/>(pub/sub, in-mem queue)"]
+  end
+
+  subgraph SC["Screener Layer"]
+    B1["Signal Calculators<br/>(spread, basis, funding, index-adjust)"] --> B2["Opportunity Filter<br/>(liquidity, spread, staleness)"]
+    B2 --> B3["Candidate Events<br/>(symbol, features, score)"]
+  end
+
+  subgraph SI["Strategy Intent Layer"]
+    C1["State Machine per Symbol<br/>(FLAT, OPEN, ADDING, HALTED)"] --> C2["Risk Manager<br/>(exposure, ladder cap, timeouts)"]
+    C2 --> C3["Decision Engine<br/>(ENTRY, ADD, TP, SL, HALT)"]
+    C3 --> C4["Intent Outbox<br/>(dedup, idempotency)"]
+  end
+
+  subgraph EX["Execution Layer"]
+    D1["Order Router<br/>(exchange adapter)"] --> D2["Order Manager<br/>(place, amend, cancel)"]
+    D2 --> D3["Fill and Position Tracker<br/>(avg price, PnL)"]
+    D3 --> D4["Reconcile and Recovery<br/>(restart safety, drift fix)"]
+  end
+
+  subgraph OBS["Observability and Ops"]
+    E1["Metrics / Logs / Tracing"] --> E2["Alerts<br/>(runaway spread, stale data, failures)"]
+    E3["Dashboard<br/>(PnL, exposure, health)"]
+  end
+
+  %% ---------- Cross-layer links ----------
+  MD --> SC --> SI --> EX
+  EX --> SI
+  MD --> OBS
+  SC --> OBS
+  SI --> OBS
+  EX --> OBS
+
+  %% ---------- Styling ----------
+  classDef md fill:#E8F1FF,stroke:#2B6CB0,stroke-width:2px,color:#0B2545;
+  classDef sc fill:#E9FBF0,stroke:#2F855A,stroke-width:2px,color:#0B3D2E;
+  classDef si fill:#FFF7E6,stroke:#B7791F,stroke-width:2px,color:#5A3A00;
+  classDef ex fill:#F3E8FF,stroke:#6B46C1,stroke-width:2px,color:#2D1A6B;
+  classDef obs fill:#FFE8EA,stroke:#C53030,stroke-width:2px,color:#5A0B0B;
+
+  class A1,A2,A3,A4 md;
+  class B1,B2,B3 sc;
+  class C1,C2,C3,C4 si;
+  class D1,D2,D3,D4 ex;
+  class E1,E2,E3 obs;
+
+  linkStyle default stroke-width:2px;

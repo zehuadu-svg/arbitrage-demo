@@ -1,0 +1,17 @@
+flowchart TD
+  A["Position Opened on HL"] --> B["Monitoring loop"]
+  B --> C["Fetch quotes (HL + Reference)<br/>Compute stock_gap, index_gap, adjusted_gap"]
+
+  C --> D{"Take-profit met?<br/>abs(adjusted_gap) <= exit_threshold<br/>AND hold_time >= min_hold_time"}
+  D -- "No" --> E{"Time-based exit?<br/>now - entry_time >= max_hold_time"}
+  E -- "No" --> F["Keep holding<br/>Update metrics/log"] --> G["Sleep / Next tick"] --> B
+
+  D -- "Yes" --> I["Intent: CLOSE_POSITION<br/>reason = TP_CONVERGENCE"]
+  E -- "Yes" --> H["Intent: CLOSE_POSITION<br/>reason = TIME_EXIT"]
+
+  H --> J["Execution: reduce-only close<br/>market or aggressive IOC"]
+  I --> J
+
+  J --> K{"Close filled?"}
+  K -- "Yes" --> L["Record PnL<br/>state = FLAT<br/>Notify"]
+  K -- "No" --> M["Retry / partial close<br/>Escalate if persistent"] --> B
