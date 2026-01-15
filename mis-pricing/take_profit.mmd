@@ -2,8 +2,8 @@ flowchart TD
   A["Position Opened on HL"] --> B["Monitoring loop"]
   B --> C["Fetch quotes (HL + Reference)<br/>Compute stock_gap, index_gap, adjusted_gap"]
 
-  C --> D{"Take-profit met?<br/>abs(adjusted_gap) <= exit_threshold<br/>AND hold_time >= min_hold_time"}
-  D -- "No" --> E{"Time-based exit?<br/>now - entry_time >= max_hold_time"}
+  C --> D{"Take-profit met?<br/>abs(adjusted_gap) &lt;= exit_threshold<br/>AND hold_time &gt;= min_hold_time"}
+  D -- "No" --> E{"Time-based exit?<br/>now - entry_time &gt;= max_hold_time"}
   E -- "No" --> F["Keep holding<br/>Update metrics/log"] --> G["Sleep / Next tick"] --> B
 
   D -- "Yes" --> I["Intent: CLOSE_POSITION<br/>reason = TP_CONVERGENCE"]
@@ -15,3 +15,20 @@ flowchart TD
   J --> K{"Close filled?"}
   K -- "Yes" --> L["Record PnL<br/>state = FLAT<br/>Notify"]
   K -- "No" --> M["Retry / partial close<br/>Escalate if persistent"] --> B
+
+  %% ---------- Styling (subtle) ----------
+  classDef decision fill:#EEF4FF,stroke:#2B6CB0,stroke-width:1px,color:#0B2545;
+  classDef loop fill:#F6F7F9,stroke:#A0AEC0,stroke-width:1px,color:#1A202C;
+  classDef intent fill:#FFF7E6,stroke:#B7791F,stroke-width:1px,color:#5A3A00;
+  classDef exec fill:#F3E8FF,stroke:#6B46C1,stroke-width:1px,color:#2D1A6B;
+  classDef ok fill:#E9FBF0,stroke:#2F855A,stroke-width:1px,color:#0B3D2E;
+  classDef warn fill:#FFE8EA,stroke:#C53030,stroke-width:1px,color:#5A0B0B;
+
+  class D,E,K decision;
+  class A,B,C,F,G loop;
+  class H,I intent;
+  class J exec;
+  class L ok;
+  class M warn;
+
+  linkStyle default stroke-width:1.5px;
