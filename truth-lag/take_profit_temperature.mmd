@@ -1,0 +1,102 @@
+flowchart TB
+  %% =========================================================
+  %% take_profit_temperature.mmd
+  %% Truth-Lag Strategy Example: Temperature Threshold Market
+  %% Scenario:
+  %% - Truth source already recorded max_temp >= threshold
+  %% - Polymarket YES price lags behind and later converges
+  %% - Use staged take-profit: TP1 then TP2, fallback hold-to-settle
+  %% =========================================================
+
+  subgraph MD["Market Data Layer"]
+  direction LR
+    MD1["Polymarket CLOB Quotes<br/>YES bid ask and depth"]:::data --> MD3["Quote Health<br/>staleness gaps"]:::data
+    MD2["Truth Source Updates<br/>max_temp, station, time"]:::data --> MD4["Premise Check<br/>station unit timezone"]:::data
+  end
+
+  subgraph SC["Screener Layer"]
+  direction LR
+    SC1["Truth Engine<br/>p_true near 1 when max_temp >= threshold"]:::dec --> SC2["Mispricing<br/>edge = p_true - best_ask_yes - costs"]:::dec
+    SC2 --> SC3["Opportunity Filter<br/>liquidity and ttl"]:::dec
+  end
+
+  subgraph SI["Strategy Intent Layer"]
+  direction TB
+    SI0["State Machine<br/>FLAT OPEN TP1_PENDING TP2_PENDING"]:::state
+    SI1{"ENTRY condition?<br/>premise_valid and edge > entry_th"}:::gate
+    SI2["Emit ENTRY Intent<br/>BUY YES at limit 0.72 to 0.74<br/>ttl 30s"]:::intent
+
+    SI3{"TP1 condition?<br/>mid >= 0.93"}:::gate
+    SI4["Emit TP1 Intent<br/>SELL YES 70% at 0.94"]:::intent
+
+    SI5{"TP2 condition?<br/>mid >= 0.97<br/>or time_to_resolution <= 60m"}:::gate
+    SI6["Emit TP2 Intent<br/>SELL YES 30% at 0.98"]:::intent
+
+    SI7{"Fallback?<br/>liquidity thin near resolution"}:::gate
+    SI8["Hold to Settle<br/>keep remainder to resolution"]:::state
+
+    SI0 --> SI1
+    SI1 -- "Yes" --> SI2
+    SI1 -- "No" --> SI0
+
+    SI0 --> SI3
+    SI3 -- "Yes" --> SI4
+    SI3 -- "No" --> SI0
+
+    SI0 --> SI5
+    SI5 -- "Yes" --> SI6
+    SI5 -- "No" --> SI0
+
+    SI0 --> SI7
+    SI7 -- "Yes" --> SI8
+    SI7 -- "No" --> SI0
+  end
+
+  subgraph EX["Execution Layer"]
+  direction LR
+    EX1["Order Router"]:::exec --> EX2["Order Manager<br/>place amend cancel"]:::exec --> EX3["Fill and Position Tracker<br/>avg price, pnl"]:::exec
+  end
+
+  subgraph OBS["Observability and Ops"]
+  direction LR
+    OB1["Metrics and Logs<br/>edge, tp fill ratio, latency"]:::ops --> OB2["Alerts<br/>tp stuck, stale data"]:::ops
+  end
+
+  %% -------------------------
+  %% Cross-layer wiring
+  %% -------------------------
+  MD3 --> SC1
+  MD4 --> SC1
+
+  SC3 --> SI0
+
+  SI2 --> EX1
+  SI4 --> EX1
+  SI6 --> EX1
+
+  EX3 --> SI0
+
+  MD3 --> OB1
+  SC2 --> OB1
+  EX3 --> OB1
+
+  %% -------------------------
+  %% Styling (not too flashy)
+  %% -------------------------
+  classDef data fill:#E8F1FF,stroke:#2B6CB0,stroke-width:2px,color:#0B2545;
+  classDef dec fill:#FFF7E6,stroke:#B7791F,stroke-width:2px,color:#5A3A00;
+  classDef state fill:#E9FBF0,stroke:#2F855A,stroke-width:2px,color:#0B3D2E;
+  classDef intent fill:#F3E8FF,stroke:#6B46C1,stroke-width:2px,color:#2D1A6B;
+  classDef exec fill:#FAFAFA,stroke:#616161,stroke-width:2px,color:#212121;
+  classDef ops fill:#FFE8EA,stroke:#C53030,stroke-width:2px,color:#5A0B0B;
+  classDef gate fill:#FFFFFF,stroke:#444444,stroke-width:2px,color:#111111;
+
+  class MD1,MD2,MD3,MD4 data;
+  class SC1,SC2,SC3 dec;
+  class SI0 state;
+  class SI2,SI4,SI6 intent;
+  class EX1,EX2,EX3 exec;
+  class OB1,OB2 ops;
+  class SI1,SI3,SI5,SI7 gate;
+
+  linkStyle default stroke-width:2px;
